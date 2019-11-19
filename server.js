@@ -15,16 +15,33 @@ var db = mysql.createConnection({
 });
 db.connect();
 
+var minetype = {
+    '.js' : 'text/javascript',
+    '.css' : 'text/css',
+    '.png' : 'image/png',
+    '.jpg' : 'image/jpeg'
+}
+
 var app = http.createServer( function(request, response){
     var reqUrl = request.url;
     var queryData = url.parse(reqUrl, true).query;
     var pathname = url.parse(reqUrl, true).pathname;
-    // var filepath = path.join(process.cwd()+"/",'nothing.png');
-    // var stat = fs.statSync(filepath);
-    // var readStream = fs.createReadStream(filepath);
-    // readStream.pipe(response);
-
-    if(pathname === '/'){
+    var ext = path.parse(reqUrl).ext;
+    if(Object.keys(minetype).includes(ext)){
+        imgname = qs.unescape(reqUrl);
+        console.log(imgname);
+        
+        fs.readFile(`${__dirname}${imgname}`,function (error,data) {
+            if(error){
+                throw error;
+            }
+            
+            response.statusCode = 200;
+            response.setHeader('Content-Type',minetype[ext]);
+            response.end(data);
+        })
+    }
+    else if(pathname === '/'){
         if(queryData.id === undefined){
             db.query(`SELECT * FROM article ORDER BY year,month,date`,function(error,articles){
                 if (error){
@@ -46,7 +63,7 @@ var app = http.createServer( function(request, response){
                     
 
                     if (images.length == 0){
-                        var default_img = [{image_link : `/image/nothing.png`}];
+                        var default_img = [{image_link : `  /image/nothing.png`}];
                         imgslider = template.imgslider(default_img);
                     }
                     else{
@@ -84,7 +101,7 @@ var app = http.createServer( function(request, response){
                         
                         if (images.length == 0){
                             fs.readFile('./nothing.png',function (img) {
-                                var default_img = [{image_link : "./nothing.png"}];
+                                var default_img = [{image_link : "/image/nothing.png"}];
                                 imgslider = template.imgslider(default_img);
                             });
                             
@@ -145,14 +162,16 @@ var app = http.createServer( function(request, response){
 
         form.parse(request,function (err,fields,files) {
             var oldpath = files.images.path;
-            var newpath = files.images.name;
-            var id = files.id.name;
+            var newpath = __dirname + "/image/"+files.images.name;
+            var id = fields.id;
             console.log(id);
             
             fs.rename(oldpath,newpath,function (err) {
             });
-
-            //db.query(`INSERT INTO images(image_link,article_id) VALUSE(?,?)`,[])
+            imagelink = "./image/" + files.images.name;
+            db.query(`INSERT INTO image(image_link,article_id) VALUES(?,?)`,[imagelink,id]);
+            response.writeHead(302,{Location: `/`});
+            response.end();
         })
         
     }

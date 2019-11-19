@@ -138,7 +138,7 @@ module.exports = {
 
                 <div id = "imageUpload">
                     <input type="file" name = "images">
-                    <input type = "file" value = "${id}" name = "id">
+                    <input type = "hidden" value = "${id}" name = "id">
                 </div>
                 <input type = "submit" value = "업로드">
             </form>
