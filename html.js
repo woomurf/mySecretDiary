@@ -93,7 +93,6 @@ module.exports = {
 
         return content;
     },
-
     createArticle : function () {
         var html = `
         <!doctype html>
@@ -106,9 +105,12 @@ module.exports = {
                 </div>
             </head>
             <body>
-                <form action = "/create_process" method = "post">
+                <form action = "/create_process" method = "post" enctype = "multipart/form-data">
                     <div id = "setDate">
                         <input type = "date" name = "day">
+                    </div>
+                    <div id = "imageUpload">
+                        <input type="file" name = "images" multiple/>
                     </div>
                     <div id = "articleUpload">
                         <p> 
@@ -120,51 +122,35 @@ module.exports = {
                     </div>
                     <input type = "submit">
                 </form>
+                <button onclick = "location.href = '/'">back </button>
             </body>
         </html>
         `;
 
         return html;
     },
-    imgHTML : function (id) {
-        var html = `
-        <!doctype html>
-        <html>
-        <head>
-            <meta charset = "utf-8">
-        </head>
-        <body>
-            <form action = "/image_process" method ="post" enctype = "multipart/form-data">
-
-                <div id = "imageUpload">
-                    <input type="file" name = "images">
-                    <input type = "hidden" value = "${id}" name = "id">
-                </div>
-                <input type = "submit" value = "업로드">
-            </form>
-        </body>
-        </html>`;
-        return html;
-    },
-    updateArticle : function (title,content,year,month,date) {
+    updateArticle : function (id,title,content,year,month,date,imagelist) {
+        var jsfile = fs.readFileSync("./src/file.js");
         var html = `
         <!doctype html>
         <html>
             <head>
                 <title> 나만의 비밀 다이어리 글쓰기 </title>
                 <meta charset = "utf-8">
+                <script>
+                    ${jsfile}
+                </script>
                 <div id = "who">
                     <p>이름 의 비밀 다이어리</p>
                 </div>
             </head>
             <body>
-                <form action = "/create_process" method = "post">
+                <form action = "/update_process" method = "post" enctype = "multipart/form-data">
                     <div id = "setDate">
                         <input type = "date" name = "day" value = "${year}-${month}-${date}">
                     </div>
                     <div id = "imageUpload">
-                        <input type="file" name = "images">
-                        <input type = "submit">
+                        <input type = "file" name = "newImages" multiple/>
                     </div>
                     <div id = "articleUpload">
                         <p> 
@@ -174,7 +160,15 @@ module.exports = {
                             <textarea name = "content" >${content}</textarea>
                         </p>
                     </div>
+                    <input type = "hidden" id = "deleteImage" name = "deleteImage"> 
+                    <input type = "hidden" name = "id" value = "${id}">
+                    <input type = "submit">
                 </form>
+                <button onclick = "location.href='/'">back</button>
+                <div id = "currentImages">
+                    ${imagelist}
+                </div>
+                
             </body>
         </html>
         `;

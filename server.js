@@ -27,10 +27,12 @@ var app = http.createServer( function(request, response){
     var queryData = url.parse(reqUrl, true).query;
     var pathname = url.parse(reqUrl, true).pathname;
     var ext = path.parse(reqUrl).ext;
+
+
+    // 이미지 요청이 들어오면 확장자를 통해서 해당 이미지를 서버에 올려준다. 
     if(Object.keys(minetype).includes(ext)){
         imgname = qs.unescape(reqUrl);
-        console.log(imgname);
-        
+       
         fs.readFile(`${__dirname}${imgname}`,function (error,data) {
             if(error){
                 throw error;
@@ -41,7 +43,9 @@ var app = http.createServer( function(request, response){
             response.end(data);
         })
     }
+    // 홈 화면 
     else if(pathname === '/'){
+        // 게시글이 선택되지 않으면, 가장 최근 날짜의 게시글을 보여준다.
         if(queryData.id === undefined){
             db.query(`SELECT * FROM article ORDER BY year,month,date`,function(error,articles){
                 if (error){
@@ -60,10 +64,9 @@ var app = http.createServer( function(request, response){
                     if (error2){
                         throw error2;
                     }
-                    
 
                     if (images.length == 0){
-                        var default_img = [{image_link : `  /image/nothing.png`}];
+                        var default_img = [{image_link : `./image/nothing.png`}];
                         imgslider = template.imgslider(default_img);
                     }
                     else{
@@ -78,6 +81,7 @@ var app = http.createServer( function(request, response){
                 
             });
         }
+        // 게시글이 선택되었을 때
         else{
             db.query(`SELECT * FROM article ORDER BY year,month,date`,function (error1,articles) {
                 if(error1){
@@ -100,38 +104,26 @@ var app = http.createServer( function(request, response){
                         }
                         
                         if (images.length == 0){
-                            fs.readFile('./nothing.png',function (img) {
-                                var default_img = [{image_link : "/image/nothing.png"}];
-                                imgslider = template.imgslider(default_img);
-                            });
+                            
+                            var default_img = [{image_link : "/image/nothing.png"}];
+                            imgslider = template.imgslider(default_img);
                             
                         }
                         else{
                             imgslider = template.imgslider(images);
                         }
+                                
+                        var html = template.HTML(year,month,datelist,imgslider,content,id);
                         
-                        fs.readFile(`./src/home.css`,function (error1,css) {
-                            if(error1){
-                                throw error1;
-                            }
-                            fs.readFile(`./src/swipe.js`,function (error2,swipe) {
-                                if(error2){
-                                    throw error2;
-                                }
-                                
-                                var html = template.HTML(year,month,datelist,imgslider,content,css.toString(),swipe.toString(),id);
-                                
-                                response.writeHead(200);
-                                response.end(html);
-                                
-                            });
-                        });    
+                        response.writeHead(200);
+                        response.end(html);
+                        ;    
                     });   
                 });
             });
         }
     }
-    
+    // 게시글 작성 화면 - create. 
     else if (pathname === '/create'){
         db.query(`SELECT * FROM article`,function (error,articles) {
             if(error){
@@ -139,66 +131,45 @@ var app = http.createServer( function(request, response){
             }
 
             var createHTML = template.createArticle();
-            console.log(createHTML);
             
             response.writeHead(200);
             response.end(createHTML);
 
         })
     }
-    else if(pathname ==='/image_process'){
-        var body = '';
-        request.on('data',function (data) {
-            body += data;
-        });
-        request.on('end',function () {
-            var post = qs.parse(body);
-            var id = post.id;
-            console.log(id);
-            
-        })
+    // /create에서 작성한 내용을 받아 db에 저장하는 create_process
+    else if(pathname ==='/create_process'){
         var form = new formidable.IncomingForm();
         form.encoding = "utf-8";
+        form.multiples = true;
 
         form.parse(request,function (err,fields,files) {
-            var oldpath = files.images.path;
-            var newpath = __dirname + "/image/"+files.images.name;
-            var id = fields.id;
-            console.log(id);
             
-            fs.rename(oldpath,newpath,function (err) {
-            });
-            imagelink = "./image/" + files.images.name;
-            db.query(`INSERT INTO image(image_link,article_id) VALUES(?,?)`,[imagelink,id]);
-            response.writeHead(302,{Location: `/`});
-            response.end();
-        })
-        
-    }
-    else if(pathname ==='/create_process'){
-        var body = '';
-        request.on('data',function (data) {
-            body += data;
-        });
-        request.on('end',function () {
-            var post = qs.parse(body);
-            
-            var day = post.day;
-            console.log(day);
-            
-            var date = day.split('-');
-            var title = post.title;
-            var content = post.content;
+            var day = fields.day;
+            var title = fields.title;
+            var content = fields.content;
+            console.log(fields);
+            console.log(files);
+
+            date = day.split('-');
 
             db.query(`INSERT INTO article(title,content,year,month,date) VALUES(?,?,?,?,?)`,[title,content,date[0],date[1],date[2]],function (error,result) {
-                
                 var id = result.insertId;
-                var html = template.imgHTML(id);
-                response.writeHead(200);
-                response.end(html);
-            })
-        })
+                files.images.forEach(image => {
+                    var oldpath = image.path;
+                    var newpath = __dirname + "/image/"+image.name;
+                    fs.rename(oldpath,newpath,function (err) {
+                    });
+                    imagelink = "./image/" + image.name;    
+                    db.query(`INSERT INTO image(image_link,article_id) VALUES(?,?)`,[imagelink,id]);
+                });
+                response.writeHead(302,{Location: `/?id=${id}`});
+                response.end();
+            });
+            
+        });
     }
+    // 게시글을 삭제하는 delete_process
     else if( pathname === '/delete_process'){
         var body = '';
         request.on('data',function (data) {
@@ -218,22 +189,73 @@ var app = http.createServer( function(request, response){
             })
         })
     }
+    // 게시글을 수정하는 update
     else if(pathname === '/update'){
+        
         db.query(`SELECT * FROM article WHERE id = ?`,[queryData.id],function (error,article) {
             if (error){
                 throw error;
             }
+            db.query(`SELECT * FROM image WHERE article_id = ? `,[queryData.id],function (error,images) {
+                
+                var imagelist = `<div id = "preview_wrapper">`;
 
-            var title = article[0].title;
-            var content = article[0].content;
-            var year = article[0].year;
-            var month = article[0].month;
-            var date = article[0].date;
+                images.forEach(image => {
+                    imagelist += `<div><img id = "image${image.id}"src = "${image.image_link}"> <button id = "${image.id}" class = "btnDelete">사진삭제</button></div>`;
+                });
+                imagelist += `</div>`;
 
-            var updatehtml = template.updateArticle(title,content,year,month,date);
-            response.writeHead(200);
-            response.end(updatehtml);
+                var title = article[0].title;
+                var content = article[0].content;
+                var year = article[0].year;
+                var month = article[0].month;
+                var date = article[0].date;
 
+                var updatehtml = template.updateArticle(queryData.id,title,content,year,month,date,imagelist);
+                response.writeHead(200);
+                response.end(updatehtml);
+            })
+
+        });
+    }
+    // 수정된 정보를 db에 넣어주는 update_process
+    else if (pathname === '/update_process'){
+        var form = new formidable.IncomingForm();
+        form.encoding = "utf-8";
+        form.multiples = true;
+        form.parse(request,function (err,fields,files) {
+            
+            var day = fields.day;
+            var title = fields.title;
+            var content = fields.content;
+            var id = fields.id;
+            var dlist = fields.deleteImage;
+            var images = files.newImages;
+
+            deletes = dlist.split(',');
+            for(let i = 0; i < deletes.length; i++){
+                db.query(`DELETE FROM image WHERE id = ?`,[deletes[i]]);
+            }
+
+            images.forEach(image => {
+                var oldpath = image.path;
+                var newpath = __dirname + "/image/"+image.name;
+                fs.rename(oldpath,newpath,function (err) {
+                });
+                imagelink = "./image/" + image.name;    
+                db.query(`INSERT INTO image(image_link,article_id) VALUES(?,?)`,[imagelink,id]);
+            });
+
+            console.log(fields);
+            
+            date = day.split('-');
+
+            db.query(`UPDATE article SET title = ?,content = ?, year = ?, month = ? ,date = ? WHERE id = ${id} `,[title,content,date[0],date[1],date[2]],function (error,result) {
+            
+                response.writeHead(302,{Location: `/?id=${id}`});
+                response.end();
+             
+            });
         });
     }
     else {

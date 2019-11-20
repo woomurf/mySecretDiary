@@ -1,4 +1,13 @@
 window.onload = function(){
+    /***********************************************
+     * 
+     * 
+     * Image Slide functions
+     * 
+     * 
+     * 
+     ************************************************/
+
     //slide-wrap
     var slideWrapper = document.getElementById("slider-wrap");
     //current slideIndexition
@@ -81,5 +90,6 @@ window.onload = function(){
             location.href = '/?id='+this.value;
         }
     }
+    
     
 }
